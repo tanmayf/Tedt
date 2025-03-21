@@ -172,12 +172,84 @@ async def done_command(client, message):
 
     finally:
         # Cleanup: Reset user's data in the database. Important!
+
+@app.on_message(filters.command("done"))
+async def done_command(client, message):
+    user_id = message.from_user.id
+    user_data = collection.find_one({"user_id": user_id})
+
+    if not user_data or user_data.get("state") != "waiting_for_files":
+        await message.reply_text(
+            "Please start by using the /merge command first, and then send the files."
+        )
+        return
+
+    files = user_data.get("files")
+
+    if not files:
+        await message.reply_text("No files received. Please upload the split ZIP files.")
+        return
+
+    # Sort files to ensure correct merging order
+    files.sort()
+
+    try:
+        # Create the merged zip file
+        merged_zip_path = os.path.join(DOWNLOAD_DIR, str(user_id), "merged.zip")
+        os.makedirs(os.path.dirname(merged_zip_path), exist_ok=True)
+
+        with open(merged_zip_path, "wb") as merged_zip:
+            for part in files:
+                with open(part, "rb") as part_file:
+                    while True:
+                        chunk = part_file.read(4096)  # Adjust chunk size if needed
+                        if not chunk:
+                            break
+                        merged_zip.write(chunk)
+
+        await message.reply_text("Merging files... Please wait.")
+
+        # Extract ZIP in a separate thread
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            extracted_files, error_message = await loop.run_in_executor(
+                pool, extract_zip_and_upload, user_id, merged_zip_path, DOWNLOAD_DIR
+            )
+
+        if error_message:
+            await message.reply_text(f"Error extracting ZIP: {error_message}")
+            return
+
+        if extracted_files:
+            await message.reply_text(
+                "ZIP extraction complete. Uploading files..."
+            )
+            for file_path in extracted_files:
+                try:
+                    await client.send_document(
+                        chat_id=message.chat.id, document=file_path
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Error uploading file {file_path} for user {user_id}: {e}"
+                    )
+                    await message.reply_text(
+                        f"Error uploading {os.path.basename(file_path)}: {e}"
+                    )
+            await message.reply_text("All files uploaded.")
+        else:
+            await message.reply_text("No files were extracted.")
+
+    except Exception as e:
+        logger.error(f"Error merging or extracting files for user {user_id}: {e}")
+        await message.reply_text(f"An error occurred: {e}")
+
+    finally:
+        # Cleanup: Reset user's data in the database. Important!
         collection.update_one(
             {"user_id": user_id}, {"$set": {"files": [], "state": "idle"}}
         )
-
         # OPTIONAL: Clean up downloaded files to save space. Be VERY careful with this.
-        # You might want to only delete after a certain time period.
         try:
             user_download_dir = os.path.join(DOWNLOAD_DIR, str(user_id))
             if os.path.exists(user_download_dir):
@@ -189,8 +261,6 @@ async def done_command(client, message):
                 os.rmdir(user_download_dir) # Remove the user's directory after cleaning up
         except Exception as e:
             logger.warning(f"Error cleaning up files for user {user_id}: {e}")
-
-
 # Error Handler (optional, but good practice)
 @app.on_message(filters.command("start"))
 async def start_command(client, message):
