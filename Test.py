@@ -1,25 +1,3 @@
-
-import os
-import asyncio
-import zipfile
-import re
-from pyrogram import Client, filters, types
-from pyrogram.handlers import MessageHandler
-from pymongo import MongoClient
-from io import BytesIO
-import logging
-import concurrent.futures
-
-# Configuration (replace with your actual values)
-API_ID = 23904398  # Your Telegram API ID
-API_HASH = "c55934364222dc3d4155320d2ced1359"  # Your Telegram API Hash
-BOT_TOKEN = "7658008644:AAGtekRQRLwbu9b-bW6mJ2-w1BZGVeHJVDE"  # Your Bot Token
-MONGO_URI = "mongodb+srv://orzipdrin:w3WCKeMMR8Qg12zQ@cluster0.7p8qh.mongodb.net/?retryWrites=true&w=majority"  # Your MongoDB connection string
-DB_NAME = "zip_extractor_bot"
-COLLECTION_NAME = "user_files"
-DOWNLOAD_DIR = "downloads"  # Directory to store downloaded files
-
-# Configure logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -235,4 +213,3 @@ async def echo(client, message):
 if __name__ == "__main__":
     print("Bot started!")
     app.run()
-              
