@@ -19,7 +19,6 @@ DB_NAME = "zip_extractor_bot"
 COLLECTION_NAME = "user_files"
 DOWNLOAD_DIR = "downloads"  # Directory to store downloaded files
 
-# Configure logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
